@@ -2,7 +2,7 @@ import argparse
 import socket
 
 
-from utils import PacketHeader, compute_checksum
+from utils import PacketHeader, compute_checksum, to_bytes
 
 
 def receiver(receiver_ip, receiver_port, window_size):
@@ -44,6 +44,7 @@ def receiver(receiver_ip, receiver_port, window_size):
 
             if seq_num >= expected_seq + window_size:
                 continue
+            received_data[seq_num] = msg
 
             if seq_num == expected_seq:
                 while expected_seq in received_data:
@@ -52,13 +53,13 @@ def receiver(receiver_ip, receiver_port, window_size):
             ack_header = PacketHeader(type = 1, seq_num = expected_seq, length = 0)
             ack_header.checksum = compute_checksum(ack_header/b"")
             ack_pkt = ack_header/b" "
-            s.sendto(bytes(ack_pkt), address)
+            s.sendto(to_bytes(ack_pkt), address)
 
         elif pkt_header.type == 3 and session_active:
             ack_header = PacketHeader(type=1, seq_num=expected_seq, length=0)
             ack_header.checksum = compute_checksum(ack_header / b"")
             ack_pkt = ack_header / b""
-            s.sendto(bytes(ack_pkt), address)
+            s.sendto(to_bytes(ack_pkt), address)
 
             with open(output_file, "wb") as f:
                 seq = 0
@@ -66,7 +67,7 @@ def receiver(receiver_ip, receiver_port, window_size):
                     f.write(received_data[seq])
                     seq += 1
             break
-    s.close()
+
 
 
 def main():
