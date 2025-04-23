@@ -53,13 +53,13 @@ def receiver(receiver_ip, receiver_port, window_size):
             ack_header = PacketHeader(type = 1, seq_num = expected_seq, length = 0)
             ack_header.checksum = compute_checksum(ack_header/b"")
             ack_pkt = ack_header/b" "
-            s.sendto(to_bytes(ack_pkt), address)
+            s.sendto(bytes(ack_pkt), address)
 
         elif pkt_header.type == 3 and session_active:
             ack_header = PacketHeader(type=1, seq_num=expected_seq, length=0)
             ack_header.checksum = compute_checksum(ack_header / b"")
             ack_pkt = ack_header / b""
-            s.sendto(to_bytes(ack_pkt), address)
+            s.sendto(bytes(ack_pkt), address)
 
             with open(output_file, "wb") as f:
                 seq = 0

@@ -28,7 +28,7 @@ def sender(receiver_ip, receiver_port, window_size):
     start_header = PacketHeader(type=0, seq_num=0, length=0)
     start_header.checksum = compute_checksum(start_header / b"")
     start_pkt = start_header / b""
-    s.sendto(to_bytes(start_pkt), (receiver_ip, receiver_port))
+    s.sendto(bytes(start_pkt), (receiver_ip, receiver_port))
     print("Sent START packet")
 
     while base < len(packets):
@@ -37,7 +37,7 @@ def sender(receiver_ip, receiver_port, window_size):
             header = PacketHeader(type = 2, seq_num = next_seq, length = len(data))
             header.checksum = compute_checksum(header/data)
             pkt = header/data
-            s.sendto(to_bytes(pkt), (receiver_ip, receiver_port))
+            s.sendto(bytes(pkt), (receiver_ip, receiver_port))
             window[next_seq] = pkt
             print(f"send packet {next_seq}")
             next_seq += 1
@@ -57,19 +57,19 @@ def sender(receiver_ip, receiver_port, window_size):
             except socket.timeout:
                 print("Time out, resending window")
                 for seq, pkt in window.items():
-                    s.sendto(to_bytes(pkt), receiver_ip, receiver_port)
+                    s.sendto(bytes(pkt), receiver_ip, receiver_port)
                     print(f"resend packet {seq}")
 
             if time.time() - start_time >= 0.5:
                 for seq, pkt in window.items():
-                    s.sendto(to_bytes(pkt), (receiver_ip, receiver_port))
+                    s.sendto(bytes(pkt), (receiver_ip, receiver_port))
                 start_time = time.time()
 
                 # send end
     end_header = PacketHeader(type=3, seq_num= next_seq, length=0)
     end_header.checksum = compute_checksum(end_header / b"")
     end_pkt = end_header / b""
-    s.sendto(to_bytes(end_pkt), (receiver_ip, receiver_port))
+    s.sendto(bytes(end_pkt), (receiver_ip, receiver_port))
     print("Sent END packet")
 
     end_start_time = time.time()
