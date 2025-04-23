@@ -55,7 +55,7 @@ def sender(receiver_ip, receiver_port, window_size):
             except socket.timeout:
                 print("Time out, resending window")
                 for seq, pkt in window.items():
-                    s.sendto(pkt, receiver_ip, receiver_port)
+                    s.sendto(bytes(pkt), receiver_ip, receiver_port)
                     print(f"resend packet {seq}")
 
             if time.time() - start_time >= 0.5:

@@ -66,7 +66,7 @@ def receiver(receiver_ip, receiver_port, window_size):
                     f.write(received_data[seq])
                     seq += 1
             break
-        s.close()
+    s.close()
 
 
 def main():
