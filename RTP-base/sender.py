@@ -24,17 +24,11 @@ def sender(receiver_ip, receiver_port, window_size):
     PKT_TYPE_ACK = 3
 
     #devide message into packets
-    MAX_PAYLOAD = 1400
+    MAX_DATA_SIZE = 1456
 
+    chunks = [message[i:i + MAX_DATA_SIZE] for i in range(0, len(message), MAX_DATA_SIZE)]
 
-
-    chunks = [message[i:i + MAX_PAYLOAD] for i in range(0, len(message), MAX_PAYLOAD)]
-
-    #init window
-    base = 0
-    next_seq = 0
     seq_num = 0
-
     #send start
     start_header = PacketHeader(type= PKT_TYPE_START, seq_num=seq_num, length=0)
     start_header.checksum = compute_checksum(start_header / b"")
@@ -46,12 +40,12 @@ def sender(receiver_ip, receiver_port, window_size):
         ack_header = PacketHeader(data[:16])
 
         if ack_header.type != PKT_TYPE_ACK or ack_header.seq_num != 1:
+            print("Failed to establish connection", file=sys.stderr)
             return
-
 
         seq_num = 1
     except socket.timeout:
-        print("Timed out")
+        print("Timed out START ACK")
         return
 
     packets = []
@@ -60,6 +54,9 @@ def sender(receiver_ip, receiver_port, window_size):
         pkt_header.checksum = compute_checksum(pkt_header / chunk)
         packets.append((pkt_header / chunk, seq_num))
         seq_num += 1
+
+    base = 0
+    next_seq = 0
 
     timer = None
 
@@ -125,7 +122,7 @@ def sender(receiver_ip, receiver_port, window_size):
             data, _ = s.recvfrom(2048)
             ack_header = PacketHeader(data[:16])
 
-            if ack_header.type == PKT_TYPE_ACK and ack_header.seq_num >= end_seq_num:
+            if ack_header.type == PKT_TYPE_ACK and ack_header.seq_num == end_seq_num + 1:
                 break
         except socket.timeout:
             break
