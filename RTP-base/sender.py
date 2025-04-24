@@ -87,7 +87,7 @@ def sender(receiver_ip, receiver_port, window_size):
 
         try:
             data, addr = s.recvfrom(2048)
-            ack_header = PacketHeader(data)
+            ack_header = PacketHeader(data[:16])
 
             if ack_header.type == PKT_TYPE_ACK:
                 if ack_header.seq_num > packets[base][1]:
