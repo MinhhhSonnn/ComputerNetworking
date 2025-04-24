@@ -3,96 +3,136 @@ import argparse
 import socket
 import sys
 import time
-import signal
+from threading import Timer
 
 from utils import PacketHeader, compute_checksum
 
-s = None
 
-def signal_handler(sig, frame):
-    print("Sender shutting down...")
-    if s:
-        s.close()
-    sys.exit(0)
 
 def sender(receiver_ip, receiver_port, window_size):
     """TODO: Open socket and send message from sys.stdin."""
-    global s
+
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.settimeout(0.5)
 
-    signal.signal(signal.SIGINT, signal_handler)
 
+    message = sys.stdin.read()
 
-    message = sys.stdin.buffer.read()
+    PKT_TYPE_START = 0
+    PKT_TYPE_END = 1
+    PKT_TYPE_DATA = 2
+    PKT_TYPE_ACK = 3
 
     #devide message into packets
     MAX_PAYLOAD = 1400
-    packets = [message[i:i + MAX_PAYLOAD] for i in range(0, len(message), MAX_PAYLOAD)]
+
+
+
+    chunks = [message[i:i + MAX_PAYLOAD] for i in range(0, len(message), MAX_PAYLOAD)]
 
     #init window
     base = 0
     next_seq = 0
-    window = {}
+    seq_num = 0
 
     #send start
-    start_header = PacketHeader(type=0, seq_num=0, length=0)
-    start_header.checksum = compute_checksum(start_header / b"")
-    start_pkt = start_header / b""
+    start_header = PacketHeader(type= PKT_TYPE_START, seq_num=seq_num, length=0)
+    start_header.checksum = compute_checksum(start_header / "")
+    start_pkt = start_header / ""
     s.sendto(bytes(start_pkt), (receiver_ip, receiver_port))
-    print("Sent START packet")
+
+    try:
+        data, _ = s.recvfrom(2048)
+        ack_header = PacketHeader.from_bytes(data)
+
+        if ack_header.type != PKT_TYPE_ACK or ack_header.seq_num != 1:
+            print("Failed to establish connection", file=sys.stderr)
+            return
+
+
+        seq_num = 1
+    except socket.timeout:
+        print("Timeout waiting for START ACK", file=sys.stderr)
+        return
+
+    packets = []
+    for chunk in chunks:
+        pkt_header = PacketHeader(type=PKT_TYPE_DATA, seq_num=seq_num, length=len(chunk))
+        pkt_header.checksum = compute_checksum(pkt_header / chunk)
+        packets.append((pkt_header / chunk, seq_num))
+        seq_num += 1
+
+    timer = None
+
+    def start_timer():
+        nonlocal timer
+        if timer:
+            timer.cancel()
+        timer = Timer(0.5, timeout_handler)
+        timer.start()
+
+    def timeout_handler():
+        nonlocal base, next_seq_num
+        for i in range(base, min(base + window_size, len(packets))):
+            s.sendto(bytes(packets[i][0]), (receiver_ip, receiver_port))
+        start_timer()
+
+
 
     while base < len(packets):
         while next_seq < base + window_size and next_seq < len(packets):
-            data = packets[next_seq]
-            header = PacketHeader(type = 2, seq_num = next_seq, length = len(data))
-            header.checksum = compute_checksum(header/data)
-            pkt = header/data
-            s.sendto(bytes(pkt), (receiver_ip, receiver_port))
-            window[next_seq] = pkt
-            print(f"send packet {next_seq}")
+            s.sendto(bytes(packets[next_seq][0]), (receiver_ip, receiver_port))
+            if base == next_seq:
+                start_timer()
             next_seq += 1
-        start_time = time.time()
-        while True:
-            try:
-                data, addr = s.recvfrom(1024)
-                ack_header = PacketHeader(data[:16])
-                if ack_header.type == 1:
-                    ack_seq = ack_header.seq_num
-                    print(f"Received ACK seq {ack_seq}")
-                    if ack_seq > base:
-                        for seq in range(base, ack_seq):
-                            window.pop(seq)
-                        base = ack_seq + 1
-                        break
-            except socket.timeout:
-                print("Time out, resending window")
-                for seq, pkt in window.items():
-                    s.sendto(bytes(pkt), receiver_ip, receiver_port)
-                    print(f"resend packet {seq}")
 
-            if time.time() - start_time >= 0.5:
-                for seq, pkt in window.items():
-                    s.sendto(bytes(pkt), (receiver_ip, receiver_port))
-                start_time = time.time()
 
-                # send end
-    end_header = PacketHeader(type=3, seq_num= next_seq, length=0)
-    end_header.checksum = compute_checksum(end_header / b"")
-    end_pkt = end_header / b""
-    s.sendto(bytes(end_pkt), (receiver_ip, receiver_port))
-    print("Sent END packet")
-
-    end_start_time = time.time()
-    while time.time() - end_start_time < 0.5:
         try:
-            data, addr = s.recvfrom(1024)
-            ack_header = PacketHeader(data[:16])
-            if ack_header.type == 1 and ack_header.seq_num == next_seq:
+            data, addr = s.recvfrom(2048)
+            ack_header = PacketHeader.from_bytes(data)
+
+            if ack_header.type == PKT_TYPE_ACK:
+                if ack_header.seq_num > packets[base][1]:
+                    old_base = base
+
+                    while base < len(packets) and packets[base][1] < ack_header.seq_num:
+                        base += 1
+
+                    if base < len(packets) and old_base != base:
+                        start_timer()
+                    elif base == len(packets):
+                        if timer:
+                            timer.cancel()
+                        break
+
+        except socket.timeout:
+            pass
+
+    #send end
+    end_seq_num = seq_num
+    end_header = PacketHeader(type=PKT_TYPE_END, seq_num=end_seq_num, length=0)
+    end_header.checksum = compute_checksum(end_header / "")
+    end_packet = end_header / ""
+    s.sendto(bytes(end_packet), (receiver_ip, receiver_port))
+
+
+    end_timer_start = time.time()
+    end_timer_duration = 0.5
+
+
+    while time.time() - end_timer_start < end_timer_duration:
+        try:
+            s.settimeout(end_timer_duration - (time.time() - end_timer_start))
+            data, _ = s.recvfrom(2048)
+            ack_header = PacketHeader.from_bytes(data)
+
+            if ack_header.type == PKT_TYPE_ACK and ack_header.seq_num == end_seq_num + 1:
                 break
         except socket.timeout:
-            continue
+            break
 
+
+    s.close()
 
 
 def main():
