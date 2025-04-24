@@ -73,6 +73,7 @@ def receiver(receiver_ip, receiver_port, window_size):
                     received_data[seq_num] = msg
                 while expected_seq in received_data:
                     sys.stdout.buffer.write(received_data[expected_seq])
+                    sys.stdout.buffer.flush()
                     del received_data[expected_seq]
                     expected_seq += 1
                 ack_header = PacketHeader(type=PKT_TYPE_ACK, seq_num=expected_seq, length=0)

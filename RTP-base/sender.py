@@ -124,7 +124,7 @@ def sender(receiver_ip, receiver_port, window_size):
             data, _ = s.recvfrom(2048)
             ack_header = PacketHeader(data[:16])
 
-            if ack_header.type == PKT_TYPE_ACK and ack_header.seq_num == end_seq_num:
+            if ack_header.type == PKT_TYPE_ACK and ack_header.seq_num >= end_seq_num:
                 break
         except socket.timeout:
             break
