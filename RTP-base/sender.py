@@ -72,7 +72,7 @@ def sender(receiver_ip, receiver_port, window_size):
         timer.start()
 
     def timeout_handler():
-        nonlocal base, next_seq_num
+        nonlocal base, seq_num
         for i in range(base, min(base + window_size, len(packets))):
             s.sendto(bytes(packets[i][0]), (receiver_ip, receiver_port))
         start_timer()
