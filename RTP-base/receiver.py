@@ -1,14 +1,25 @@
 import argparse
 import socket
+import sys
+import signal
 
+from utils import PacketHeader, compute_checksum
 
-from utils import PacketHeader, compute_checksum, to_bytes
+s = None
 
+def signal_handler(sig, frame):
+    print("Receiver shutting down...")
+    if s:
+        s.close()
+    sys.exit(0)
 
 def receiver(receiver_ip, receiver_port, window_size):
     """TODO: Listen on socket and print received message to sys.stdout."""
+    global s
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.bind((receiver_ip, receiver_port))
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     expected_seq = 0
     received_data = []

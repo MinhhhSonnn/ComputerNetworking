@@ -3,14 +3,25 @@ import argparse
 import socket
 import sys
 import time
+import signal
 
-from utils import PacketHeader, compute_checksum, to_bytes
+from utils import PacketHeader, compute_checksum
 
+s = None
+
+def signal_handler(sig, frame):
+    print("Sender shutting down...")
+    if s:
+        s.close()
+    sys.exit(0)
 
 def sender(receiver_ip, receiver_port, window_size):
     """TODO: Open socket and send message from sys.stdin."""
+    global s
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s.settimeout(0.5)
+
+    signal.signal(signal.SIGINT, signal_handler)
 
 
     message = sys.stdin.buffer.read()
