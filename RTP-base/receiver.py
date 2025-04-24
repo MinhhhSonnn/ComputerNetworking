@@ -57,22 +57,40 @@ def receiver(receiver_ip, receiver_port, window_size):
         elif pkt_header.type == PKT_TYPE_DATA and session_active:
             seq_num = pkt_header.seq_num
 
-            if seq_num >= expected_seq + window_size:
+            if seq_num < expected_seq:  # Gói đã nhận trước đó
+                ack_header = PacketHeader(type=PKT_TYPE_ACK, seq_num=expected_seq, length=0)
+                ack_header.checksum = compute_checksum(ack_header / b"")
+                s.sendto(bytes(ack_header / b""), address)
+
+            elif seq_num >= expected_seq + window_size:
                 ack_header = PacketHeader(type=PKT_TYPE_ACK, seq_num=expected_seq, length=0)
                 ack_header.checksum = compute_checksum(ack_header / b"")
                 s.sendto(bytes(ack_header / b""), address)
                 continue
 
-            if pkt_header.seq_num not in received_data and pkt_header.seq_num >= expected_seq:
-                received_data[pkt_header.seq_num] = msg
+            else:
+                if seq_num not in received_data:
+                    received_data[seq_num] = msg
+                while expected_seq in received_data:
+                    sys.stdout.buffer.write(received_data[expected_seq])
+                    del received_data[expected_seq]
+                    expected_seq += 1
+                ack_header = PacketHeader(type=PKT_TYPE_ACK, seq_num=expected_seq, length=0)
+                ack_header.checksum = compute_checksum(ack_header / b"")
+                s.sendto(bytes(ack_header / b""), address)
 
 
 
         elif pkt_header.type == PKT_TYPE_END and session_active:
-            ack_header = PacketHeader(type=PKT_TYPE_ACK, seq_num=pkt_header.seq_num + 1, length=0)
+            while expected_seq in received_data:
+                sys.stdout.buffer.write(received_data[expected_seq])
+                del received_data[expected_seq]
+                expected_seq += 1
+            ack_header = PacketHeader(type=PKT_TYPE_ACK, seq_num=expected_seq, length=0)
             ack_header.checksum = compute_checksum(ack_header / b"")
             s.sendto(bytes(ack_header / b""), address)
-            break
+            if expected_seq > pkt_header.seq_num:
+                break
 
     while expected_seq in received_data:
         sys.stdout.buffer.write(received_data[expected_seq])
