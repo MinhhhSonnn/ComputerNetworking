@@ -28,6 +28,7 @@ def receiver(receiver_ip, receiver_port, window_size):
         pkt_header = PacketHeader(pkt[:16])
         msg = pkt[16:16 + len(pkt_header)]
 
+        print(f"Received packet: type={pkt_header.type}, seq_num={pkt_header.seq_num}, session_active={session_active}")
         # Verity checksum
         pkt_checksum = pkt_header.checksum
         pkt_header.checksum = 0
