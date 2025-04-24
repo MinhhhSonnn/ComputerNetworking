@@ -92,16 +92,6 @@ def receiver(receiver_ip, receiver_port, window_size):
             if expected_seq > pkt_header.seq_num:
                 break
 
-    while expected_seq in received_data:
-        sys.stdout.buffer.write(received_data[expected_seq])
-        sys.stdout.buffer.flush()
-
-        del received_data[expected_seq]
-        expected_seq += 1
-
-    ack_header = PacketHeader(type=PKT_TYPE_ACK, seq_num=expected_seq, length=0)
-    ack_header.checksum = compute_checksum(ack_header / b"")
-    s.sendto(bytes(ack_header / b""), address)
 
     s.close()
 
