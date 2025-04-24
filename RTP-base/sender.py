@@ -43,7 +43,7 @@ def sender(receiver_ip, receiver_port, window_size):
 
     try:
         data, _ = s.recvfrom(2048)
-        ack_header = PacketHeader.bytes(data[:16])
+        ack_header = (data[:16])
 
         if ack_header.type != PKT_TYPE_ACK or ack_header.seq_num != 1:
             return

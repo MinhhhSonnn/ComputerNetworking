@@ -25,7 +25,7 @@ def receiver(receiver_ip, receiver_port, window_size):
         pkt, address = s.recvfrom(2048)
 
         # Extract header
-        pkt_header = PacketHeader.bytes(pkt[:16])
+        pkt_header = (pkt[:16])
         msg = pkt[16:16 + pkt_header.length]
 
         # Verity checksum
