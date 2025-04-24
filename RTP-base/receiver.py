@@ -17,7 +17,7 @@ def receiver(receiver_ip, receiver_port, window_size):
     PKT_TYPE_DATA = 2
     PKT_TYPE_ACK = 3
 
-    expected_seq = 0
+    expected_seq = 1
     received_data = {}
     session_active = False
 
@@ -51,6 +51,9 @@ def receiver(receiver_ip, receiver_port, window_size):
                 ack_header.checksum = compute_checksum(ack_header / b"")
                 s.sendto(bytes(ack_header / b""), address)
 
+        elif pkt_header.type == PKT_TYPE_START and session_active:
+            pass
+
         elif pkt_header.type == PKT_TYPE_DATA and session_active:
             seq_num = pkt_header.seq_num
 
@@ -72,15 +75,12 @@ def receiver(receiver_ip, receiver_port, window_size):
             break
 
     while expected_seq in received_data:
-        # Write data to stdout
         sys.stdout.buffer.write(received_data[expected_seq])
         sys.stdout.buffer.flush()
 
-        # Remove from buffer and increment expected sequence number
         del received_data[expected_seq]
         expected_seq += 1
 
-        # Send cumulative ACK
     ack_header = PacketHeader(type=PKT_TYPE_ACK, seq_num=expected_seq, length=0)
     ack_header.checksum = compute_checksum(ack_header / b"")
     s.sendto(bytes(ack_header / b""), address)

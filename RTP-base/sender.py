@@ -16,7 +16,7 @@ def sender(receiver_ip, receiver_port, window_size):
     s.settimeout(0.5)
 
 
-    message = sys.stdin.read()
+    message = sys.stdin.buffer.read()
 
     PKT_TYPE_START = 0
     PKT_TYPE_END = 1
@@ -37,22 +37,20 @@ def sender(receiver_ip, receiver_port, window_size):
 
     #send start
     start_header = PacketHeader(type= PKT_TYPE_START, seq_num=seq_num, length=0)
-    start_header.checksum = compute_checksum(start_header / "")
-    start_pkt = start_header / ""
+    start_header.checksum = compute_checksum(start_header / b"")
+    start_pkt = start_header / b""
     s.sendto(bytes(start_pkt), (receiver_ip, receiver_port))
 
     try:
         data, _ = s.recvfrom(2048)
-        ack_header = PacketHeader.from_bytes(data)
+        ack_header = PacketHeader.from_bytes(data[:16])
 
         if ack_header.type != PKT_TYPE_ACK or ack_header.seq_num != 1:
-            print("Failed to establish connection", file=sys.stderr)
             return
 
 
         seq_num = 1
     except socket.timeout:
-        print("Timeout waiting for START ACK", file=sys.stderr)
         return
 
     packets = []
@@ -68,7 +66,7 @@ def sender(receiver_ip, receiver_port, window_size):
         nonlocal timer
         if timer:
             timer.cancel()
-        timer = Timer(0.5, timeout_handler)
+        timer = Timer(0.5, timeout_handler())
         timer.start()
 
     def timeout_handler():
@@ -111,8 +109,8 @@ def sender(receiver_ip, receiver_port, window_size):
     #send end
     end_seq_num = seq_num
     end_header = PacketHeader(type=PKT_TYPE_END, seq_num=end_seq_num, length=0)
-    end_header.checksum = compute_checksum(end_header / "")
-    end_packet = end_header / ""
+    end_header.checksum = compute_checksum(end_header / b"")
+    end_packet = end_header / b""
     s.sendto(bytes(end_packet), (receiver_ip, receiver_port))
 
 
