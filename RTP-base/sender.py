@@ -51,6 +51,7 @@ def sender(receiver_ip, receiver_port, window_size):
 
         seq_num = 1
     except socket.timeout:
+        print("Timed out")
         return
 
     packets = []
