@@ -66,7 +66,7 @@ def sender(receiver_ip, receiver_port, window_size):
         nonlocal timer
         if timer:
             timer.cancel()
-        timer = Timer(0.5, timeout_handler())
+        timer = Timer(0.5, timeout_handler)
         timer.start()
 
     def timeout_handler():
